@@ -41,14 +41,16 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8; /* gray-400 */
         }
-        /* 表格在小屏幕上的最小宽度，以允许水平滚动 */
-        .table-container {
-            overflow-x: auto;
-        }
         /* 为动画准备的初始状态 */
         .initial-hidden {
             opacity: 0;
             transform: translateY(10px);
+        }
+        /* 关键修复：为表格容器设置最大高度和独立滚动条 */
+        .table-container {
+            max-height: 60vh; /* 设置最大高度为视窗高度的60% */
+            overflow-y: auto; /* 当内容超出时，垂直方向出现滚动条 */
+            overflow-x: auto; /* 保留水平方向的滚动条以适应小屏幕 */
         }
     </style>
 </head>
@@ -75,7 +77,8 @@
         <!-- 数据表格容器 -->
         <div class="border border-gray-200 rounded-lg shadow-sm table-container initial-hidden transition-all duration-500 delay-200" id="table-wrapper">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+                <!-- thead 现在会相对于 .table-container 固定 -->
+                <thead class="sticky top-0 z-10 bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">币对</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计价货币</th>
@@ -211,6 +214,7 @@
                 if (currentPage > 1) {
                     currentPage--;
                     updateView();
+                    tableWrapper.scrollTop = 0; // 点击分页后滚动到表格顶部
                 }
             });
             paginationControls.appendChild(prevButton);
@@ -229,6 +233,7 @@
                 pageButton.addEventListener('click', () => {
                     currentPage = i;
                     updateView();
+                    tableWrapper.scrollTop = 0; // 点击分页后滚动到表格顶部
                 });
                 paginationControls.appendChild(pageButton);
             }
@@ -242,6 +247,7 @@
                 if (currentPage < pageCount) {
                     currentPage++;
                     updateView();
+                    tableWrapper.scrollTop = 0; // 点击分页后滚动到表格顶部
                 }
             });
             paginationControls.appendChild(nextButton);
