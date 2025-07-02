@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密货币对列表</title>
+    <!-- 引入 Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // 自定义 Tailwind 配置，以添加您的公司品牌色
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': '#5DBBAA', // 这是从您提供的UI图片中提取的品牌颜色
+                        'brand-focus': '#4AB19E',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 使用 Inter 字体，如果不可用则回退到系统无衬线字体 */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* 自定义滚动条样式 (浅色主题) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; /* gray-100 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* gray-300 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* gray-400 */
+        }
+        /* 表格在小屏幕上的最小宽度，以允许水平滚动 */
+        .table-container {
+            overflow-x: auto;
+        }
+        /* 为动画准备的初始状态 */
+        .initial-hidden {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- 添加 'initial-hidden' 和 'transition' 类用于动画 -->
+        <header class="mb-6 initial-hidden transition-all duration-500" id="page-header">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">交易市场</h1>
+            <p class="text-gray-500 mt-1">搜索并查找最新的市场数据</p>
+        </header>
+
+        <!-- 搜索输入框 -->
+        <div class="relative mb-6 initial-hidden transition-all duration-500 delay-100" id="search-container">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <!-- 搜索图标 -->
+                <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+            </div>
+            <input type="text" id="search-input" placeholder="搜索币对, 例如 BTC/USDT" class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors">
+        </div>
+
+        <!-- 数据表格容器 -->
+        <div class="border border-gray-200 rounded-lg shadow-sm table-container initial-hidden transition-all duration-500 delay-200" id="table-wrapper">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">币对</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">基础货币</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计价货币</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最小下单量</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数量精度</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">价格精度</th>
+                    </tr>
+                </thead>
+                <!-- 表格主体将拥有自己的过渡效果 -->
+                <tbody id="symbol-list" class="bg-white divide-y divide-gray-200 transition-opacity duration-300">
+                    <!-- 初始加载状态 -->
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            <div class="flex justify-center items-center space-x-2">
+                                <svg class="animate-spin h-5 w-5 text-brand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>数据加载中...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // --- 全局变量和常量 ---
+        let allSymbols = []; // 存储从API获取的所有币对数据
+        const API_URL = 'https://100exopenapi.sokdana2233.workers.dev/?url=http://openapi.100ex.com/open/api/common/symbols&token=fd0a680fdf140544dad657baec88b3a0b07c19640e098f915f66ab7a738d4e6b';
+
+        // --- DOM 元素引用 ---
+        const searchInput = document.getElementById('search-input');
+        const tableBody = document.getElementById('symbol-list');
+        const pageHeader = document.getElementById('page-header');
+        const searchContainer = document.getElementById('search-container');
+        const tableWrapper = document.getElementById('table-wrapper');
+
+        /**
+         * 防抖函数
+         */
+        function debounce(func, delay) {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    func.apply(this, args);
+                }, delay);
+            };
+        }
+
+        /**
+         * 渲染表格行并应用动画
+         */
+        function renderTable(symbolList) {
+            tableBody.innerHTML = '';
+
+            if (!symbolList.length) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            没有找到匹配的币对
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // 为每一行创建DOM元素并应用初始动画状态
+            symbolList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'initial-hidden transition-all duration-500'; // 初始隐藏
+                tr.style.transitionDelay = `${index * 30}ms`; // 设置错开的延迟
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.symbol}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.baseCoin}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.countCoin}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.minOrder}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.amountPrecision}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.pricePrecision}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            
+            // 触发进入动画
+            setTimeout(() => {
+                const rows = tableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    row.classList.remove('initial-hidden');
+                });
+            }, 10); // 短暂延迟以确保浏览器渲染初始状态
+        }
+
+        /**
+         * 从API获取并处理数据
+         */
+        async function fetchSymbols() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error(`网络响应错误: ${response.statusText}`);
+                const data = await response.json();
+
+                if (data.code === '0' && Array.isArray(data.data)) {
+                    allSymbols = data.data.map(item => ({
+                        symbol: item.symbol.toUpperCase(),
+                        baseCoin: item.base_coin,
+                        countCoin: item.count_coin,
+                        minOrder: item.limit_volume_min,
+                        amountPrecision: item.amount_precision,
+                        pricePrecision: item.price_precision
+                    }));
+                    renderTable(allSymbols);
+                } else {
+                    throw new Error('API返回数据格式不正确');
+                }
+            } catch (error) {
+                console.error("获取数据失败:", error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-red-500">
+                            数据加载失败。请稍后重试。
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        /**
+         * 处理搜索输入
+         */
+        function handleSearch() {
+            const keyword = searchInput.value.trim().toUpperCase();
+            const filteredSymbols = allSymbols.filter(item => 
+                item.symbol.includes(keyword) || 
+                item.baseCoin.toUpperCase().includes(keyword) ||
+                item.countCoin.toUpperCase().includes(keyword)
+            );
+            // 添加淡出效果
+            tableBody.style.opacity = '0';
+            // 在淡出后渲染新数据并淡入
+            setTimeout(() => {
+                renderTable(filteredSymbols);
+                tableBody.style.opacity = '1';
+            }, 300); // 等待淡出动画完成
+        }
+
+        // --- 事件监听器和页面加载动画 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 触发页面加载动画
+            setTimeout(() => {
+                pageHeader.classList.remove('initial-hidden');
+                searchContainer.classList.remove('initial-hidden');
+                tableWrapper.classList.remove('initial-hidden');
+            }, 100);
+
+            // 仅当表格存在时才执行获取数据和绑定搜索事件
+            if (tableBody) {
+                fetchSymbols();
+                searchInput.addEventListener('input', debounce(handleSearch, 300));
+            }
+        });
+
+    </script>
+</body>
+</html>
