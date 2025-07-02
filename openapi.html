@@ -46,27 +46,25 @@
             opacity: 0;
             transform: translateY(10px);
         }
-        /* 关键修复：为表格容器设置最大高度和独立滚动条 */
+        .table-container, #pagination-controls {
+            /* 为 min-height 的变化添加平滑过渡，防止在动画结束时出现跳动 */
+            transition: min-height 0.3s ease-in-out;
+        }
         .table-container {
-            max-height: 60vh; /* 设置最大高度为视窗高度的60% */
-            overflow-y: auto; /* 当内容超出时，垂直方向出现滚动条 */
-            overflow-x: auto; /* 保留水平方向的滚动条以适应小屏幕 */
+             overflow-x: auto; /* 保留水平方向的滚动条以适应小屏幕 */
         }
     </style>
 </head>
 <body class="bg-white text-gray-800">
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- 添加 'initial-hidden' 和 'transition' 类用于动画 -->
         <header class="mb-6 initial-hidden transition-all duration-500" id="page-header">
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">交易市场</h1>
             <p class="text-gray-500 mt-1">搜索并查找最新的市场数据</p>
         </header>
 
-        <!-- 搜索输入框 -->
         <div class="relative mb-6 initial-hidden transition-all duration-500 delay-100" id="search-container">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <!-- 搜索图标 -->
                 <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
@@ -74,20 +72,16 @@
             <input type="text" id="search-input" placeholder="搜索币对, 例如 BTC/USDT" class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors">
         </div>
 
-        <!-- 数据表格容器 -->
         <div class="border border-gray-200 rounded-lg shadow-sm table-container initial-hidden transition-all duration-500 delay-200" id="table-wrapper">
             <table class="min-w-full divide-y divide-gray-200">
-                <!-- thead 现在会相对于 .table-container 固定 -->
                 <thead class="sticky top-0 z-10 bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">币对</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计价货币</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最小下单量</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">计价货币</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">最小下单量</th>
                     </tr>
                 </thead>
-                <!-- 表格主体将拥有自己的过渡效果 -->
                 <tbody id="symbol-list" class="bg-white divide-y divide-gray-200 transition-opacity duration-300">
-                    <!-- 初始加载状态 -->
                     <tr>
                         <td colspan="3" class="px-6 py-12 text-center text-gray-500">
                             <div class="flex justify-center items-center space-x-2">
@@ -103,18 +97,16 @@
             </table>
         </div>
         
-        <!-- 分页控件容器 -->
-        <div id="pagination-controls" class="flex justify-center items-center mt-6 space-x-2 initial-hidden transition-all duration-500 delay-300">
-            <!-- 分页按钮将由JS动态生成 -->
+        <div id="pagination-controls" class="flex justify-center items-center mt-6 space-x-2 initial-hidden transition-all duration-500 delay-300 transition-opacity duration-300">
         </div>
     </div>
 
     <script>
         // --- 全局变量和常量 ---
-        let allSymbols = []; // 存储从API获取的所有币对数据
-        let currentList = []; // 当前显示的列表（可以是全部或过滤后的）
+        let allSymbols = [];
+        let currentList = [];
         let currentPage = 1;
-        const itemsPerPage = 20;
+        const itemsPerPage = 10;
         const API_URL = 'https://100exopenapi.sokdana2233.workers.dev/?url=http://openapi.100ex.com/open/api/common/symbols&token=fd0a680fdf140544dad657baec88b3a0b07c19640e098f915f66ab7a738d4e6b';
 
         // --- DOM 元素引用 ---
@@ -125,9 +117,6 @@
         const searchContainer = document.getElementById('search-container');
         const tableWrapper = document.getElementById('table-wrapper');
 
-        /**
-         * 防抖函数
-         */
         function debounce(func, delay) {
             let timeoutId;
             return function(...args) {
@@ -138,124 +127,140 @@
             };
         }
         
-        /**
-         * 更新视图（表格和分页）
-         */
         function updateView() {
             renderTable();
             renderPagination();
         }
 
-        /**
-         * 渲染表格行并应用动画
-         */
         function renderTable() {
             tableBody.innerHTML = '';
-            
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const paginatedItems = currentList.slice(startIndex, endIndex);
 
             if (!paginatedItems.length && currentList.length > 0) {
-                 // 如果当前页没有数据但总列表有数据（例如，搜索结果只有一页，但用户尝试访问第二页）
                 currentPage = 1;
                 updateView();
                 return;
             }
 
             if (!paginatedItems.length) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="3" class="px-6 py-12 text-center text-gray-500">
-                            没有找到匹配的币对
-                        </td>
-                    </tr>
-                `;
+                tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-12 text-center text-gray-500">没有找到匹配的币对</td></tr>`;
                 return;
             }
 
-            // 为每一行创建DOM元素并应用初始动画状态
             paginatedItems.forEach((item, index) => {
                 const tr = document.createElement('tr');
-                tr.className = 'initial-hidden transition-all duration-500'; // 初始隐藏
-                tr.style.transitionDelay = `${index * 30}ms`; // 设置错开的延迟
+                tr.className = 'initial-hidden transition-all duration-500';
+                tr.style.transitionDelay = `${index * 30}ms`;
                 tr.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.symbol}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.countCoin}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${item.minOrder}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">${item.countCoin}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">${item.minOrder}</td>
                 `;
                 tableBody.appendChild(tr);
             });
             
-            // 触发进入动画
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 const rows = tableBody.querySelectorAll('tr');
                 rows.forEach(row => {
                     row.classList.remove('initial-hidden');
                 });
-            }, 10);
+            });
         }
 
-        /**
-         * 渲染分页控件
-         */
+        function getPaginationRange(currentPage, pageCount) {
+            let range = [];
+            const delta = 2;
+
+            for (let i = 1; i <= pageCount; i++) {
+                if (i === 1 || i === pageCount || (i >= currentPage - delta && i <= currentPage + delta)) {
+                    range.push(i);
+                }
+            }
+
+            let finalRange = [];
+            let last;
+            for (let i of range) {
+                if (last && i - last > 1) {
+                    finalRange.push('...');
+                }
+                finalRange.push(i);
+                last = i;
+            }
+            return finalRange;
+        }
+
         function renderPagination() {
-            paginationControls.innerHTML = '';
             const pageCount = Math.ceil(currentList.length / itemsPerPage);
+            paginationControls.innerHTML = '';
 
-            if (pageCount <= 1) return; // 如果只有一页或没有数据，则不显示分页
+            if (pageCount <= 1) return;
 
-            // 上一页按钮
+            const handlePageClick = (newPage) => {
+                if (newPage < 1 || newPage > pageCount || newPage === currentPage) return;
+                
+                currentPage = newPage;
+                
+                const wrapperHeight = tableWrapper.offsetHeight;
+                const paginationHeight = paginationControls.offsetHeight;
+                tableWrapper.style.minHeight = `${wrapperHeight}px`;
+                paginationControls.style.minHeight = `${paginationHeight}px`;
+
+                tableBody.style.opacity = '0';
+                paginationControls.style.opacity = '0';
+                
+                setTimeout(() => {
+                    window.scrollTo({ top: tableWrapper.offsetTop - 20, behavior: 'smooth' });
+                    updateView(); 
+                    
+                    tableBody.style.opacity = '1';
+                    paginationControls.style.opacity = '1';
+                    
+                    setTimeout(() => {
+                        tableWrapper.style.minHeight = '';
+                        paginationControls.style.minHeight = '';
+                    }, 300);
+
+                }, 300); 
+            };
+
             const prevButton = document.createElement('button');
             prevButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>`;
             prevButton.className = 'px-2 py-2 rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed';
             prevButton.disabled = currentPage === 1;
-            prevButton.addEventListener('click', () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    updateView();
-                    tableWrapper.scrollTop = 0; // 点击分页后滚动到表格顶部
-                }
-            });
+            prevButton.addEventListener('click', () => handlePageClick(currentPage - 1));
             paginationControls.appendChild(prevButton);
 
-            // 页码按钮
-            for (let i = 1; i <= pageCount; i++) {
-                // 简化逻辑：只显示当前页码前后几个页码，以及第一页和最后一页
-                const pageButton = document.createElement('button');
-                pageButton.innerText = i;
-                pageButton.className = `px-4 py-2 text-sm font-medium rounded-md hover:bg-gray-100`;
-                if (i === currentPage) {
-                    pageButton.classList.add('bg-gray-900', 'text-white', 'hover:bg-gray-700');
+            const pageRange = getPaginationRange(currentPage, pageCount);
+            pageRange.forEach(page => {
+                if (page === '...') {
+                    const dots = document.createElement('span');
+                    dots.className = 'px-4 py-2 text-sm font-medium text-gray-500';
+                    dots.innerText = '...';
+                    paginationControls.appendChild(dots);
                 } else {
-                    pageButton.classList.add('text-gray-700');
+                    const pageButton = document.createElement('button');
+                    pageButton.innerText = page;
+                    pageButton.className = `px-4 py-2 text-sm font-medium rounded-md hover:bg-gray-100`;
+                    if (page === currentPage) {
+                        pageButton.classList.add('bg-gray-900', 'text-white', 'hover:bg-gray-700');
+                    } else {
+                        pageButton.classList.add('text-gray-700');
+                    }
+                    pageButton.addEventListener('click', () => handlePageClick(page));
+                    paginationControls.appendChild(pageButton);
                 }
-                pageButton.addEventListener('click', () => {
-                    currentPage = i;
-                    updateView();
-                    tableWrapper.scrollTop = 0; // 点击分页后滚动到表格顶部
-                });
-                paginationControls.appendChild(pageButton);
-            }
+            });
             
-            // 下一页按钮
             const nextButton = document.createElement('button');
             nextButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>`;
             nextButton.className = 'px-2 py-2 rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed';
             nextButton.disabled = currentPage === pageCount;
-            nextButton.addEventListener('click', () => {
-                if (currentPage < pageCount) {
-                    currentPage++;
-                    updateView();
-                    tableWrapper.scrollTop = 0; // 点击分页后滚动到表格顶部
-                }
-            });
+            nextButton.addEventListener('click', () => handlePageClick(currentPage + 1));
             paginationControls.appendChild(nextButton);
         }
 
-        /**
-         * 从API获取并处理数据
-         */
         async function fetchSymbols() {
             try {
                 const response = await fetch(API_URL);
@@ -267,9 +272,7 @@
                         symbol: item.symbol.toUpperCase(),
                         baseCoin: item.base_coin,
                         countCoin: item.count_coin,
-                        minOrder: item.limit_volume_min,
-                        amountPrecision: item.amount_precision,
-                        pricePrecision: item.price_precision
+                        minOrder: item.limit_volume_min
                     }));
                     currentList = [...allSymbols];
                     updateView();
@@ -278,19 +281,10 @@
                 }
             } catch (error) {
                 console.error("获取数据失败:", error);
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="3" class="px-6 py-12 text-center text-red-500">
-                            数据加载失败。请稍后重试。
-                        </td>
-                    </tr>
-                `;
+                tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-12 text-center text-red-500">数据加载失败。请稍后重试。</td></tr>`;
             }
         }
 
-        /**
-         * 处理搜索输入
-         */
         function handleSearch() {
             const keyword = searchInput.value.trim().toUpperCase();
             currentList = allSymbols.filter(item => 
@@ -298,7 +292,7 @@
                 item.baseCoin.toUpperCase().includes(keyword) ||
                 item.countCoin.toUpperCase().includes(keyword)
             );
-            currentPage = 1; // 每次搜索后重置到第一页
+            currentPage = 1;
             
             tableBody.style.opacity = '0';
             setTimeout(() => {
@@ -307,7 +301,6 @@
             }, 300);
         }
 
-        // --- 事件监听器和页面加载动画 ---
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 pageHeader.classList.remove('initial-hidden');
